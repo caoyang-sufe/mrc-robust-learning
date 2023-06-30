@@ -4,8 +4,17 @@
 
 import os
 
-MODEL_ROOT = r"D:\resource\model\huggingface"
-MODEL_PATHS = {"albert-large-v1": os.path.join(MODEL_ROOT, "albert-large-v1"),
-               "albert-large-v2": os.path.join(MODEL_ROOT, "albert-large-v2"),
-               "bert-large-uncased": os.path.join(MODEL_ROOT, "bert-large-uncased"),
-               }
+DATA_ROOT = r"D:\resource\data"
+# DATA_ROOT = "/nfsshare/home/caoyang/code/data"
+MODEL_ROOT = r"D:\resource\model\huggingface\common"
+# MODEL_ROOT = "/nfsshare/home/caoyang/code/model"
+MODEL_PATH = {"albert-base-v1": os.path.join(MODEL_ROOT, "albert-base-v1"),
+              "albert-large-v1": os.path.join(MODEL_ROOT, "albert-large-v1"),
+              "albert-base-v2": os.path.join(MODEL_ROOT, "albert-base-v2"),
+              "albert-large-v2": os.path.join(MODEL_ROOT, "albert-large-v2"),
+              "bert-base-uncased": os.path.join(MODEL_ROOT, "bert-base-uncased"),
+              "bert-large-uncased": os.path.join(MODEL_ROOT, "bert-large-uncased"),
+              "roberta-base": os.path.join(MODEL_ROOT, "roberta-base"),
+              "roberta-large": os.path.join(MODEL_ROOT, "roberta-large"),
+              }
+
