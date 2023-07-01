@@ -13,7 +13,7 @@ class Baseline(Module):
     Model = AutoModel
     criterion = CrossEntropyLoss()
     model_name = "baseline"
-    alphabets = ['A', 'B', 'C', 'D']
+    alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     alphabet2id = {alphabet: i for i, alphabet in enumerate(alphabets)}
     underline_regex = re.compile("_+")
 
