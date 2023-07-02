@@ -41,7 +41,6 @@ class Baseline(Module):
             return self.criterion(outputs, labels)
         elif mode in ["dev", "test"]:
             predicts = torch.argmax(outputs, dim=-1)
-            print(predicts)
             return sum(predicts == labels) / batch_size
 
     def preprocess(self, batch_data):
@@ -73,7 +72,7 @@ class Baseline(Module):
         return {"input_ids": input_ids, "attention_mask": attention_mask}, labels
 
 
-class BERTLargeFinetunedRACE(Baseline):
+class BertLargeFinetunedRACE(Baseline):
     Tokenizer = BertTokenizer
     Model = BertModel
     model_name = "bert-large-finetuned-race"
@@ -84,14 +83,14 @@ class BERTLargeFinetunedRACE(Baseline):
                  dropout_rate=.1,
                  max_length=512,
                  ):
-        super(BERTLargeFinetunedRACE, self).__init__(pretrained_model_name_or_path,
+        super(BertLargeFinetunedRACE, self).__init__(pretrained_model_name_or_path,
                                                      device=device,
                                                      dropout_rate=dropout_rate,
                                                      max_length=max_length
                                                      )
 
 
-class ALBERTLargeFinetunedRACE(Baseline):
+class AlbertLargeFinetunedRACE(Baseline):
     Tokenizer = AlbertTokenizer
     Model = AlbertModel
     model_name = "albert-large-finetuned-race"
@@ -102,7 +101,7 @@ class ALBERTLargeFinetunedRACE(Baseline):
                  dropout_rate=.1,
                  max_length=512,
                  ):
-        super(ALBERTLargeFinetunedRACE, self).__init__(pretrained_model_name_or_path,
+        super(AlbertLargeFinetunedRACE, self).__init__(pretrained_model_name_or_path,
                                                        device=device,
                                                        dropout_rate=dropout_rate,
                                                        max_length=max_length,
