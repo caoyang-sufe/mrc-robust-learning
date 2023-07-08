@@ -11,6 +11,7 @@ from settings import DATA_PATH, MODEL_PATH
 from src.tools.easy_tools import initialize_logger, terminate_logger
 from src.models.baselines import AlbertLargeFinetunedRACE, BertLargeFinetunedRACE
 
+
 def train_baselines(args,
                     baseline_class,
                     data_name,
@@ -36,8 +37,8 @@ def train_baselines(args,
                      "iteration": list(),
                      "loss": list(),
                      "accuracy": list(),
-                            }
-    dev_logging	= {"epoch": list(), "accuracy": list()}
+                     }
+    dev_logging = {"epoch": list(), "accuracy": list()}
 
     # Load checkpoint
     current_epoch = 0
@@ -53,6 +54,7 @@ def train_baselines(args,
     logger.info(f"Current epoch: {current_epoch}")
 
     for epoch in range(args.n_epochs):
+        # Train
         model.train()
         data_path = DATA_PATH[data_name]
         data_name_lower = data_name.lower()
@@ -70,8 +72,7 @@ def train_baselines(args,
             training_logging["epoch"].append(epoch)
             training_logging["iteration"].append(iteration)
             training_logging["loss"].append(loss)
-
-
+        # Validate
         model.eval()
         with torch.no_grad():
             kwargs = {f"{data_name_lower}_path": data_path,
@@ -82,8 +83,20 @@ def train_baselines(args,
             for i, dev_batch_data in enumerate(eval(f"yield_{data_name_lower}_batch")(**kwargs)):
                 metric = model(dev_batch_data, mode="dev")
                 logger.info(metric)
-
+    # Export train and dev logging
+    train_logging_dataframe = pandas.DataFrame(train_logging, columns=list(train_logging.keys()))
+    train_logging_dataframe.to_csv(os.path.join(LOGGING_DIR, f"{timestring}-{dataset_name}-{model_name}-{mode}.csv"),
+                                   header=True, index=False, sep='\t')
+    dev_logging_dataframe = pandas.DataFrame(dev_logging, columns=list(dev_logging.keys()))
+    dev_logging_dataframe.to_csv(
+        os.path.join(LOGGING_DIR, f'{timestring}-{dataset_name}-{model_name}-{mode.replace("train", "dev")}.csv'),
+        header=True, index=False, sep='\t')
+    if args_dataset.test_while_train:
+        test_logging_dataframe = pandas.DataFrame(test_logging, columns=list(test_logging.keys()))
+        test_logging_dataframe.to_csv(
+            os.path.join(LOGGING_DIR, f'{timestring}-{dataset_name}-{model_name}-{mode.replace("train", "test")}.csv'),
+            header=True, index=False, sep='\t')
+    # Export configurations
+    json.dump(kwargs, open(os.path.join(LOGGING_DIR, f'{timestring}-{dataset_name}-{model_name}-config.json'), 'w',
+                           encoding='utf8'))
     terminate_logger(logger)
-
-
-

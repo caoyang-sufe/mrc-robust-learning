@@ -35,6 +35,7 @@ def save_args(args, save_path=None):
             if isinstance(obj, type) or isinstance(obj, types.FunctionType):
                 return str(obj)
             return json.JSONEncoder.default(self, obj)
+
     with open(save_path, 'w', encoding="utf8") as f:
         f.write(json.dumps(vars(args), cls=_MyEncoder))
 
