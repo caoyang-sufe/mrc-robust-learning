@@ -2,6 +2,7 @@
 # @author : caoyang
 # @email: caoyang@163.sufe.edu.cn
 
+import os
 import re
 import torch
 from torch.nn import Module, Linear, Dropout, CrossEntropyLoss
@@ -12,7 +13,6 @@ class Baseline(Module):
     Tokenizer = AutoTokenizer
     Model = AutoModel
     criterion = CrossEntropyLoss()
-    model_name = "baseline"
     alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     alphabet2id = {alphabet: i for i, alphabet in enumerate(alphabets)}
     underline_regex = re.compile("_+")
@@ -35,13 +35,16 @@ class Baseline(Module):
     def forward(self, batch_data, mode="train"):
         batch_size = len(batch_data)
         inputs, labels = self.preprocess(batch_data)
-        outputs = self.classifier(self.dropout(self.model(**inputs).pooler_output)).reshape(batch_size, -1)   # (batch_size, n_option)
-        print(outputs)
+        outputs = self.classifier(self.dropout(self.model(**inputs).pooler_output)).reshape(batch_size, -1)
+        correct_size = sum(torch.argmax(outputs, dim=-1) == labels)
         if mode == "train":
-            return self.criterion(outputs, labels)
+            accuracy = correct_size / batch_size
+            loss = self.criterion(outputs, labels)
+            return loss, accuracy
         elif mode in ["dev", "test"]:
-            predicts = torch.argmax(outputs, dim=-1)
-            return sum(predicts == labels) / batch_size
+            return correct_size, batch_size
+        else:
+            assert False, f"Keyword argument `mode` should be one of train, dev or test but got {mode}"
 
     def preprocess(self, batch_data):
         input_ids = list()
@@ -66,16 +69,15 @@ class Baseline(Module):
                                                  )
                 input_ids.append(tokenized_input["input_ids"])
                 attention_mask.append(tokenized_input["attention_mask"])
-        input_ids = torch.LongTensor(input_ids).to(self.device)             # (batch_size × n_option, max_length)
-        attention_mask = torch.LongTensor(attention_mask).to(self.device)   # (batch_size × n_option, max_length)
-        labels = torch.LongTensor(labels).to(self.device)                   # (batch_size, )
+        input_ids = torch.LongTensor(input_ids).to(self.device)  # (batch_size × n_option, max_length)
+        attention_mask = torch.LongTensor(attention_mask).to(self.device)  # (batch_size × n_option, max_length)
+        labels = torch.LongTensor(labels).to(self.device)  # (batch_size, )
         return {"input_ids": input_ids, "attention_mask": attention_mask}, labels
 
 
-class BertLargeFinetunedRACE(Baseline):
+class BertFinetunedRACE(Baseline):
     Tokenizer = BertTokenizer
     Model = BertModel
-    model_name = "bert-large-finetuned-race"
 
     def __init__(self,
                  pretrained_model_name_or_path,
@@ -83,17 +85,16 @@ class BertLargeFinetunedRACE(Baseline):
                  dropout_rate=.1,
                  max_length=512,
                  ):
-        super(BertLargeFinetunedRACE, self).__init__(pretrained_model_name_or_path,
-                                                     device=device,
-                                                     dropout_rate=dropout_rate,
-                                                     max_length=max_length
-                                                     )
+        super(BertFinetunedRACE, self).__init__(pretrained_model_name_or_path,
+                                                device=device,
+                                                dropout_rate=dropout_rate,
+                                                max_length=max_length
+                                                )
 
 
-class AlbertLargeFinetunedRACE(Baseline):
+class AlbertFinetunedRACE(Baseline):
     Tokenizer = AlbertTokenizer
     Model = AlbertModel
-    model_name = "albert-large-finetuned-race"
 
     def __init__(self,
                  pretrained_model_name_or_path,
@@ -101,8 +102,25 @@ class AlbertLargeFinetunedRACE(Baseline):
                  dropout_rate=.1,
                  max_length=512,
                  ):
-        super(AlbertLargeFinetunedRACE, self).__init__(pretrained_model_name_or_path,
-                                                       device=device,
-                                                       dropout_rate=dropout_rate,
-                                                       max_length=max_length,
-                                                       )
+        super(AlbertFinetunedRACE, self).__init__(pretrained_model_name_or_path,
+                                                  device=device,
+                                                  dropout_rate=dropout_rate,
+                                                  max_length=max_length,
+                                                  )
+
+
+class RobertaFinetunedRACE(Baseline):
+    Tokenizer = AlbertTokenizer
+    Model = AlbertModel
+
+    def __init__(self,
+                 pretrained_model_name_or_path,
+                 device="cpu",
+                 dropout_rate=.1,
+                 max_length=512,
+                 ):
+        super(RobertaFinetunedRACE, self).__init__(pretrained_model_name_or_path,
+                                                   device=device,
+                                                   dropout_rate=dropout_rate,
+                                                   max_length=max_length,
+                                                   )

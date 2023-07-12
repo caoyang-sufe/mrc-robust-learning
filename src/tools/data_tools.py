@@ -94,39 +94,19 @@ def yield_dream_sample(dream_path, types, batch_size):
         yield batch_data
 
 
-def yield_copa_sample(copa_path, filename, batch_size):
-    current_batch_size = 0
-    batch_data = list()
-    data = ElementTree.parse(os.path.join(copa_path, filename))
-    corpus = data.getroot()
-    for item in corpus:
-        id_ = item.attrib["id"]
-        askfor = item.attrib["asks-for"]
-        answer = int(item.attrib["most-plausible-alternative"])
-        alternatives = list()
-        premise = None
-        for child in item:
-            if child.tag == 'p':
-                premise = child.text
-            elif child.tag.startswith('a'):
-                alternatives.append(child.text)
-        assert premise is not None, id_
-        assert len(alternatives) == 2, id_
-        # @return id			: "1501"
-        # @return premise		: "The item was packaged in bubble wrap."
-        # @return answer		: 1
-        # @return askfor		: "cause"
-        # @return alternatives	: ["It was fragile.", "It arrived at its destination intact."]
-        batch_data.append({"id": id_,
-                           "premise": premise,
-                           "askfor": askfor,
-                           "answer": answer,
-                           "alternatives": alternatives,
-                           })
-        current_batch_size += 1
-        if current_batch_size == batch_size:
-            yield batch_data
-            current_batch_size = 0
-            batch_data = list()
-    if current_batch_size > 0:
-        yield batch_data
+def generate_dataloader(data_name, types, batch_size):
+    from settings import DATA_SUMMARY
+    data_path = DATA_SUMMARY[data_name]["path"]
+    if data_name == "RACE":
+        return yield_race_sample(race_path=data_path,
+                                 types=types,
+                                 difficulties=["high", "middle"],
+                                 batch_size=batch_size,
+                                 )
+    elif data_name == "DREAM":
+        return yield_dream_sample(dream_path=data_path,
+                                  types=types,
+                                  batch_size=batch_size,
+                                  )
+    else:
+        raise NotImplementedError(f"Unknown data: {data_name}")

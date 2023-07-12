@@ -2,45 +2,54 @@
 # @author : caoyang
 # @email: caoyang@163.sufe.edu.cn
 
+import os
 import time
 import torch
-from torch.optim import Adam
+from torch.optim import Adam, lr_scheduler
 
-from settings import DATA_PATH, MODEL_PATH
+from settings import DATA_DIR, MODEL_DIR, DATA_SUMMARY, MODEL_SUMMARY, LOG_DIR, CKPT_DIR
 
-from src.tools.easy_tools import initialize_logger, terminate_logger
-from src.models.baselines import AlbertLargeFinetunedRACE, BertLargeFinetunedRACE
+from src.tools.data_tools import generate_dataloader
+from src.tools.easy_tools import save_args, initialize_logger, terminate_logger
+from src.models.baselines import AlbertFinetunedRACE, BertFinetunedRACE
 
-
+# @param args           : config.BaseConfig
+# @param baseline_class : str, e.g. "AlbertLargeFinetunedRACE", "BertLargeFinetunedRACE"
+# @param data_name      : str, e.g. "RACE", "DREAM"
+# @param plm_name       : str, e.g. "albert-base-v1", "roberta-large"
+# @param ckpt_path      : str[optional], train from checkpoint
 def train_baselines(args,
                     baseline_class,
                     data_name,
-                    plm_name,
-                    ckpt_path,
+                    model_name,
+                    ckpt_path=None,
                     ):
+    # Global variables
     time_string = time.strftime("%Y-%m-%d-%H-%M-%S")
-    logger = initialize_logger(filename=f"train-baseline-{time_string}.log", mode='w')
+    train_log = {"epoch": list(), "iteration": list(), "loss": list(), "accuracy": list()}
+    dev_log = {"epoch": list(), "accuracy": list()}
+    log_path = os.path.join(LOG_DIR, f"{data_name}-{model_name}-{time_string}.log")
+    train_log_path = os.path.join(LOG_DIR, f"train-{data_name}-{model_name}-{time_string}.csv")
+    dev_log_path = os.path.join(LOG_DIR, f"dev-{data_name}-{model_name}-{time_string}.csv")
+    config_path = os.path.join(LOG_DIR, f"config-{data_name}-{model_name}-{time_string}.json")
+    save_args(args=args, save_path=config_path)
+
+    # Load model
+    logger = initialize_logger(filename=log_path, mode='w')
     logger.info(f"Arguments: {vars(args)}")
     logger.info(f"Using {args.device}")
     logger.info(f"Available devices: {torch.cuda.device_count()}")
-
-    logger.info("Load model ...")
-    model = eval(baseline_class)(pretrained_model_name_or_path=PLM_PATH[plm_name],
+    logger.info(f"Load model with pretrained language model {model_name} ...")
+    model = eval(baseline_class)(pretrained_model_name_or_path=MODEL_SUMMARY[model_name]["path"],
                                  device=args.device,
                                  dropout_rate=args.dropout_rate,
                                  max_length=args.max_length,
                                  )
+    logger.info(f"Configure optimizer {args.optimizer} ...")
     optimizer = eval(args.optimizer)(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     step_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_multiplier)
 
-    train_logging = {"epoch": list(),
-                     "iteration": list(),
-                     "loss": list(),
-                     "accuracy": list(),
-                     }
-    dev_logging = {"epoch": list(), "accuracy": list()}
-
-    # Load checkpoint
+    # Load checkpoint(Optional)
     current_epoch = 0
     if ckpt_path is not None:
         logger.info(f"Load checkpoint from {ckpt_path}")
@@ -49,54 +58,58 @@ def train_baselines(args,
         optimizer.load_state_dict(checkpoint["optimizer"])
         step_lr_scheduler.load_state_dict(checkpoint["scheduler"])
         current_epoch = checkpoint["epoch"] + 1
-        train_logging = checkpoint["train_logging"]
-        dev_logging = checkpoint["dev_logging"]
-    logger.info(f"Current epoch: {current_epoch}")
+        train_log = checkpoint["train_log"]
+        dev_log = checkpoint["dev_log"]
+    logger.info(f"Start from epoch {current_epoch}")
 
-    for epoch in range(args.n_epochs):
+    # Train model
+    for epoch in range(current_epoch, args.n_epochs):
         # Train
         model.train()
-        data_path = DATA_PATH[data_name]
+        data_path = DATA_SUMMARY[data_name]
         data_name_lower = data_name.lower()
-        kwargs = {f"{data_name_lower}_path": data_path,
-                  "batch_size": args.train_batch_size,
-                  "types": ["train"],
-                  "difficulties": ["high", "middle"],
-                  }
-        for iteration, train_batch_data in enumerate(eval(f"yield_{data_name_lower}_batch")(**kwargs)):
-            loss = model(train_batch_data, mode="train")
-            optimizer = zero_grad()
+        train_dataloader = generate_dataloader(data_name=data_name, types=["train"], batch_size=args.train_batch_size)
+        for iteration, train_batch_data in enumerate(train_dataloader):
+            loss, train_accuracy = model(train_batch_data, mode="train")
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            logger.info(f"Epoch: {epoch} - Iteration: {iteration} - Loss: {loss.item()}")
-            training_logging["epoch"].append(epoch)
-            training_logging["iteration"].append(iteration)
-            training_logging["loss"].append(loss)
-        # Validate
+            logger.info(f"Train epoch {epoch} | iter: {iteration} - loss: {loss.item()} - acc: {train_accuracy}")
+            train_log["epoch"].append(epoch)
+            train_log["iteration"].append(iteration)
+            train_log["loss"].append(loss)
+            train_log["accuracy"].append(train_accuracy)
+        step_lr_scheduler.step()
+
+        # Save checkpoint
+        if (epoch + 1) % args.ckpt_cycle == 0:
+            checkpoint = {"model"		: model.state_dict(),
+                          "optimizer"	: optimizer.state_dict(),
+                          "scheduler"	: step_lr_scheduler.state_dict(),
+                          "epoch"		: epoch,
+                          "train_log"	: train_log,
+                          "dev_log"		: dev_log,
+                          }
+            torch.save(checkpoint, os.path.join(CKPT_DIR, f"dev-{data_name}-{model_name}-{time_string}-{epoch}.ckpt"))
+
+        # Evaluate
         model.eval()
         with torch.no_grad():
-            kwargs = {f"{data_name_lower}_path": data_path,
-                      "batch_size": args.dev_batch_size,
-                      "types": ["dev"],
-                      "difficulties": ["high", "middle"],
-                      }
-            for i, dev_batch_data in enumerate(eval(f"yield_{data_name_lower}_batch")(**kwargs)):
-                metric = model(dev_batch_data, mode="dev")
-                logger.info(metric)
-    # Export train and dev logging
-    train_logging_dataframe = pandas.DataFrame(train_logging, columns=list(train_logging.keys()))
-    train_logging_dataframe.to_csv(os.path.join(LOGGING_DIR, f"{timestring}-{dataset_name}-{model_name}-{mode}.csv"),
-                                   header=True, index=False, sep='\t')
-    dev_logging_dataframe = pandas.DataFrame(dev_logging, columns=list(dev_logging.keys()))
-    dev_logging_dataframe.to_csv(
-        os.path.join(LOGGING_DIR, f'{timestring}-{dataset_name}-{model_name}-{mode.replace("train", "dev")}.csv'),
-        header=True, index=False, sep='\t')
-    if args_dataset.test_while_train:
-        test_logging_dataframe = pandas.DataFrame(test_logging, columns=list(test_logging.keys()))
-        test_logging_dataframe.to_csv(
-            os.path.join(LOGGING_DIR, f'{timestring}-{dataset_name}-{model_name}-{mode.replace("train", "test")}.csv'),
-            header=True, index=False, sep='\t')
-    # Export configurations
-    json.dump(kwargs, open(os.path.join(LOGGING_DIR, f'{timestring}-{dataset_name}-{model_name}-config.json'), 'w',
-                           encoding='utf8'))
+            correct = 0
+            total = 0
+            dev_dataloader = generate_dataloader(data_name=data_name, types=["train"], batch_size=args.dev_batch_size)
+            for i, dev_batch_data in enumerate(dev_dataloader):
+                correct_size, batch_size = model(dev_batch_data, mode="dev")
+                correct += correct_size
+                total += batch_size
+        dev_accuracy = correct / total
+        dev_log["epoch"].append(epoch)
+        dev_log["accuracy"].append(dev_accuracy)
+        logger.info(f"Eval epoch {epoch} | correct: {correct} - total: {total} - acc: {dev_accuracy}")
+
+    # Export log
+    train_log_dataframe = pandas.DataFrame(train_log, columns=list(train_logging.keys()))
+    train_log_dataframe.to_csv(train_log_path, header=True, index=False, sep='\t')
+    dev_log_dataframe = pandas.DataFrame(dev_log, columns=list(train_logging.keys()))
+    dev_log_dataframe.to_csv(dev_log_path, header=True, index=False, sep='\t')
     terminate_logger(logger)
