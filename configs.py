@@ -15,7 +15,7 @@ class BaseConfig:
     parser.add_argument("--test_batch_size", default=32, type=int, help="Size of test batch")
     parser.add_argument("--optimizer", default="Adam", type=str, help="Optimizer in `torch.optim`")
     parser.add_argument("--learning_rate", default=1e-5, type=float, help="Keyword argument `lr` of optimizer")
-    parser.add_argument("--weight_decay", default=.9, type=float, help="Keyword argument `weight_decay` of optimizer")
+    parser.add_argument("--weight_decay", default=0, type=float, help="Keyword argument `weight_decay` of optimizer")
     parser.add_argument("--ckpt_cycle", default=1, type=int, help="Save checkpoint every ? epochs")
     parser.add_argument("--lr_step_size", default=1, type=float, help="Keyword argument `step_size` of scheduler")
     parser.add_argument("--lr_multiplier", default=.95, type=float, help="Keyword argument `gamma` of scheduler")

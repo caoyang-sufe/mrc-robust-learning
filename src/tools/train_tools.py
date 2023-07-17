@@ -5,10 +5,11 @@
 import os
 import time
 import torch
+import pandas
+
 from torch.optim import Adam, lr_scheduler
 
 from settings import DATA_DIR, MODEL_DIR, DATA_SUMMARY, MODEL_SUMMARY, LOG_DIR, CKPT_DIR
-
 from src.tools.data_tools import generate_dataloader
 from src.tools.easy_tools import save_args, initialize_logger, terminate_logger
 from src.models.baselines import AlbertFinetunedRACE, BertFinetunedRACE
@@ -44,7 +45,7 @@ def train_baselines(args,
                                  device=args.device,
                                  dropout_rate=args.dropout_rate,
                                  max_length=args.max_length,
-                                 )
+                                 ).to(args.device)
     logger.info(f"Configure optimizer {args.optimizer} ...")
     optimizer = eval(args.optimizer)(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     step_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_multiplier)
@@ -108,8 +109,8 @@ def train_baselines(args,
         logger.info(f"Eval epoch {epoch} | correct: {correct} - total: {total} - acc: {dev_accuracy}")
 
     # Export log
-    train_log_dataframe = pandas.DataFrame(train_log, columns=list(train_logging.keys()))
+    train_log_dataframe = pandas.DataFrame(train_log, columns=list(train_log.keys()))
     train_log_dataframe.to_csv(train_log_path, header=True, index=False, sep='\t')
-    dev_log_dataframe = pandas.DataFrame(dev_log, columns=list(train_logging.keys()))
+    dev_log_dataframe = pandas.DataFrame(dev_log, columns=list(dev_log.keys()))
     dev_log_dataframe.to_csv(dev_log_path, header=True, index=False, sep='\t')
     terminate_logger(logger)

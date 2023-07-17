@@ -15,7 +15,7 @@ class Baseline(Module):
     criterion = CrossEntropyLoss()
     alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     alphabet2id = {alphabet: i for i, alphabet in enumerate(alphabets)}
-    underline_regex = re.compile("_+")
+    underline_regex = re.compile("_+", re.U)
 
     def __init__(self,
                  pretrained_model_name_or_path,
@@ -24,13 +24,15 @@ class Baseline(Module):
                  max_length=512,
                  ):
         super(Baseline, self).__init__()
+        self.tokenizer = self.Tokenizer.from_pretrained(pretrained_model_name_or_path)
+        self.model = self.Model.from_pretrained(pretrained_model_name_or_path)
+        self.model.train()
         self.device = device
         self.max_length = max_length
-        self.tokenizer = self.Tokenizer.from_pretrained(pretrained_model_name_or_path)
-        self.model = self.Model.from_pretrained(pretrained_model_name_or_path).to(device)
         self.hidden_size = self.model.config.hidden_size
         self.dropout = Dropout(p=dropout_rate, inplace=False)
         self.classifier = Linear(in_features=self.hidden_size, out_features=1, bias=True)
+
 
     def forward(self, batch_data, mode="train"):
         batch_size = len(batch_data)
@@ -58,6 +60,7 @@ class Baseline(Module):
             labels.append(self.alphabet2id[answer])
             flag = len(self.underline_regex.findall(question)) == 1
             for option in options:
+                option = option.replace('\\', ' ') # Regex substitute cannot deal with backslash
                 question_option = self.underline_regex.sub(option, question) if flag else question + ' ' + option
                 tokenized_input = self.tokenizer(article,
                                                  question_option,
@@ -69,9 +72,9 @@ class Baseline(Module):
                                                  )
                 input_ids.append(tokenized_input["input_ids"])
                 attention_mask.append(tokenized_input["attention_mask"])
-        input_ids = torch.LongTensor(input_ids).to(self.device)  # (batch_size × n_option, max_length)
-        attention_mask = torch.LongTensor(attention_mask).to(self.device)  # (batch_size × n_option, max_length)
-        labels = torch.LongTensor(labels).to(self.device)  # (batch_size, )
+        input_ids = torch.LongTensor(input_ids).to(self.device) # (batch_size × n_option, max_length)
+        attention_mask = torch.LongTensor(attention_mask).to(self.device) # (batch_size × n_option, max_length)
+        labels = torch.LongTensor(labels).to(self.device) # (batch_size, )
         return {"input_ids": input_ids, "attention_mask": attention_mask}, labels
 
 

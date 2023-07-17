@@ -14,8 +14,13 @@ args = load_args(Config=BaseConfig)
 kwargs = dict(args=args,
               baseline_class="AlbertFinetunedRACE",
               data_name="RACE",
-              model_name="albert-base-v1",
+              model_name="albert-large-v1",
               ckpt_path=None,
               )
-
+kwargs = dict(args=args,
+              baseline_class="BertFinetunedRACE",
+              data_name="RACE",
+              model_name="bert-base-uncased",
+              ckpt_path=None,
+              )
 train_baselines(**kwargs)

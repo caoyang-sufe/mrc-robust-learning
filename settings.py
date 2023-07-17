@@ -5,14 +5,14 @@
 import os
 
 DATA_DIR = r"D:\resource\data"
-# DATA_DIR = "/nfsshare/home/caoyang/code/data"
+DATA_DIR = "/nfsshare/home/caoyang/code/data"
 DATA_SUMMARY = {"RACE": {"path": os.path.join(DATA_DIR, "RACE")},
                 "DREAM": {"path": os.path.join(DATA_DIR, "DREAM")},
                 "COPA": {"path": os.path.join(DATA_DIR, "BCOPA-CE")},
                 }
 
 MODEL_DIR = r"D:\resource\model\huggingface\common"
-# MODEL_DIR = "/nfsshare/home/caoyang/code/model"
+MODEL_DIR = "/nfsshare/home/caoyang/code/model/huggingface"
 MODEL_SUMMARY = {"albert-base-v1": {"path": os.path.join(MODEL_DIR, "albert-base-v1")},
                  "albert-large-v1": {"path": os.path.join(MODEL_DIR, "albert-large-v1")},
                  "albert-base-v2": {"path": os.path.join(MODEL_DIR, "albert-base-v2")},
