@@ -23,4 +23,16 @@ kwargs = dict(args=args,
               model_name="bert-base-uncased",
               ckpt_path=None,
               )
+kwargs = dict(args=args,
+              baseline_class="BertFinetunedRACE",
+              data_name="RACE",
+              model_name="bert-large-uncased",
+              ckpt_path=None,
+              )
+# kwargs = dict(args=args,
+#               baseline_class="RobertaFinetunedRACE",
+#               data_name="RACE",
+#               model_name="roberta-base",
+#               ckpt_path=None,
+#               )
 train_baselines(**kwargs)
